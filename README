@@ -1,0 +1,9 @@
+Sourcey Jack - A simple SOCKSifying application for Windows
+
+(c) 2011 James Forshaw
+
+This is a simple application to inject into a process and add basic SOCKSv4 support to it.
+
+It uses a modified version of EasyHook (http://easyhook.codeplex.com/) which removes the requirement to
+run it as admin or to add files to the GAC (which seems a somewhat silly thing to do). The modified source
+is provided in the repository.
