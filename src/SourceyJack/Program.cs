@@ -31,9 +31,19 @@ namespace SourceyJack
         [STAThread]
         static void Main()
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MainForm());
+            bool createdNew = false;
+            System.Threading.Mutex m = new System.Threading.Mutex(false, "{BE450405-C3CF-45D3-A1F4-29F0C0A0E02D}", out createdNew);
+
+            if (createdNew)
+            {
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new MainForm());
+            }
+            else
+            {
+                MessageBox.Show("Already a copy running");
+            }
         }
     }
 }

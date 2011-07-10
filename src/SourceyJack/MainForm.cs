@@ -16,26 +16,38 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-***********************************************************************/ 
+***********************************************************************/
 using System;
-using System.Runtime.Remoting;
-using System.Windows.Forms;
-using EasyHook;
-using System.Net;
-using System.Diagnostics;
 using System.Collections;
+using System.Diagnostics;
+using System.IO;
+using System.Net;
+using System.Windows.Forms;
+using DetoursLib;
+using System.IO.MemoryMappedFiles;
 
 namespace SourceyJack
 {
     public partial class MainForm : Form
-    {        
+    {
+        MemoryMappedFile _map;
+
+
         public MainForm()
         {
             InitializeComponent();
-        }
+        }        
 
         private void MainForm_Load(object sender, EventArgs e)
         {
+            _map = MemoryMappedFile.CreateNew("SJackConfig", 4096, MemoryMappedFileAccess.ReadWrite);
+            using (Stream stm = _map.CreateViewStream())
+            {
+                using (BinaryWriter writer = new BinaryWriter(stm))
+                {                    
+                }
+            }
+
             RefreshProcessList();
         }
 
@@ -58,30 +70,53 @@ namespace SourceyJack
             }
         }
 
-        private void btnStart_Click(object sender, EventArgs e)
+        private bool UpdateMap()
         {
-            string exe = textBoxExe.Text.Trim();
-            IPAddress addr;            
+            IPAddress addr;
 
-            if (String.IsNullOrEmpty(exe))
-            {
-                MessageBox.Show(this, "Must specify an executable file", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            else if (!IPAddress.TryParse(textBoxServer.Text, out addr))
+            if (!IPAddress.TryParse(textBoxServer.Text, out addr))
             {
                 MessageBox.Show(this, "Must specific a value IP address for the server", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
             }
             else
             {
-                int pid;
-
-                try
-                {                    
-                    RemoteHooking.CreateAndInject(exe, textBoxCmdLine.Text, 0, "JackInject.dll", "JackInject.dll", out pid, new IPEndPoint(addr, (int)numPort.Value));
-                }
-                catch (Exception ex)
+                using (Stream stm = _map.CreateViewStream(0, 4096, MemoryMappedFileAccess.ReadWrite))
                 {
-                    MessageBox.Show(ex.ToString());
+                    using (BinaryWriter writer = new BinaryWriter(stm))
+                    {
+                        writer.Write(addr.GetAddressBytes());
+                        writer.Write((short)numPort.Value);
+                    }
+                }
+                return true;
+            }            
+        }
+
+        private void btnStart_Click(object sender, EventArgs e)
+        {
+            string exe = textBoxExe.Text.Trim();
+            
+
+            if (UpdateMap())
+            {
+                if (String.IsNullOrEmpty(exe))
+                {
+                    MessageBox.Show(this, "Must specify an executable file", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }                
+                else
+                {
+                    //int pid;
+
+                    try
+                    {
+                        string dllPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SJackHook.dll");
+                        Detours.CreateProcessWithDll(exe, String.IsNullOrWhiteSpace(textBoxCmdLine.Text) ? null : textBoxCmdLine.Text, dllPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.ToString());
+                    }
                 }
             }
         }
@@ -146,28 +181,26 @@ namespace SourceyJack
         }
 
         private void btnInject_Click(object sender, EventArgs e)
-        {            
-            IPAddress addr;
-
-            if (listViewProcesses.SelectedItems.Count == 0)
+        {
+            if (UpdateMap())
             {
-                MessageBox.Show(this, "Must select a process", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            else if (!IPAddress.TryParse(textBoxServer.Text, out addr))
-            {
-                MessageBox.Show(this, "Must specific a value IP address for the server", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            else
-            {
-                int pid = (int)listViewProcesses.SelectedItems[0].Tag;             
-
-                try
+                if (listViewProcesses.SelectedItems.Count == 0)
                 {
-                    RemoteHooking.Inject(pid, "JackInject.dll", "JackInject.dll", new IPEndPoint(addr, (int)numPort.Value));
+                    MessageBox.Show(this, "Must select a process", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
-                catch (Exception ex)
+                else
                 {
-                    MessageBox.Show(ex.ToString());
+                    int pid = (int)listViewProcesses.SelectedItems[0].Tag;
+
+                    try
+                    {
+                        string dllPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SJackHook.dll");
+                        Detours.InjectDll(pid, dllPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.ToString());
+                    }
                 }
             }
         }
