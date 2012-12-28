@@ -20,6 +20,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
 using System.Windows.Forms;
+using DetoursLib;
+using System.IO;
+using System.Text;
+using System.Collections.Generic;
+using System.Linq;
+using System.Diagnostics;
+using System.Reflection;
+using System.Threading;
 
 namespace SourceyJack
 {
@@ -29,20 +37,62 @@ namespace SourceyJack
         /// The main entry point for the application.
         /// </summary>
         [STAThread]
-        static void Main()
+        static void Main(string[] args)
         {
             bool createdNew = false;
             System.Threading.Mutex m = new System.Threading.Mutex(false, "{BE450405-C3CF-45D3-A1F4-29F0C0A0E02D}", out createdNew);
 
-            if (createdNew)
+            if (args.Length > 0)
             {
-                Application.EnableVisualStyles();
-                Application.SetCompatibleTextRenderingDefault(false);
-                Application.Run(new MainForm());
+                try
+                {
+                    if (createdNew)
+                    {
+                        m.Dispose();
+                        Process p = Process.Start(new Uri(Assembly.GetExecutingAssembly().CodeBase).LocalPath);
+
+                        p.WaitForInputIdle(10000);
+                    }
+
+                    Thread.Sleep(10000);
+                    
+                    string dllPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SJackHook.dll");
+
+                    List<string> argList = new List<string>();
+
+                    for (int i = 1; i < args.Length; ++i)
+                    {
+                        if (args[i].Contains(" "))
+                        {
+                            argList.Add(String.Format("\"{0}\"", args[i]));
+                        }
+                        else
+                        {
+                            argList.Add(args[i]);
+                        }
+                    }
+
+                    string cmdLine = argList.Count > 0 ? String.Join(" ", argList) : null;
+
+                    Detours.CreateProcessWithDll(args[0], cmdLine, dllPath);                    
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.ToString());
+                }
             }
             else
             {
-                MessageBox.Show("Already a copy running");
+                if (createdNew)
+                {
+                    Application.EnableVisualStyles();
+                    Application.SetCompatibleTextRenderingDefault(false);
+                    Application.Run(new MainForm());
+                }
+                else
+                {
+                    MessageBox.Show("Already a copy running");
+                }
             }
         }
     }

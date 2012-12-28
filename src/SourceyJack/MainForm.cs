@@ -44,9 +44,11 @@ namespace SourceyJack
             using (Stream stm = _map.CreateViewStream())
             {
                 using (BinaryWriter writer = new BinaryWriter(stm))
-                {                    
+                {
                 }
             }
+
+            UpdateMap();
 
             RefreshProcessList();
         }
@@ -96,18 +98,15 @@ namespace SourceyJack
         private void btnStart_Click(object sender, EventArgs e)
         {
             string exe = textBoxExe.Text.Trim();
-            
 
             if (UpdateMap())
             {
                 if (String.IsNullOrEmpty(exe))
                 {
                     MessageBox.Show(this, "Must specify an executable file", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }                
+                }
                 else
                 {
-                    //int pid;
-
                     try
                     {
                         string dllPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SJackHook.dll");
